@@ -49,7 +49,6 @@ describe("Database Schema", () => {
       ORDER BY name
     `).all() as TableInfo[];
 
-    console.log("\nDatabase Tables:");
     tables.forEach(table => {
       console.log(`\n--- ${table.name} ---`);
       console.log(table.sql);
