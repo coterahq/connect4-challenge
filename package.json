@@ -3,7 +3,9 @@
   "module": "index.ts",
   "type": "module",
   "devDependencies": {
-    "@types/bun": "latest"
+    "@testing-library/react": "^16.2.0",
+    "@types/bun": "latest",
+    "happy-dom": "^17.3.0"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"

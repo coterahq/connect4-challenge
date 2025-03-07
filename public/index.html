@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Connect 4</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/react-router-dom@6/dist/umd/react-router-dom.development.js"></script>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
@@ -128,6 +131,9 @@
 </head>
 <body>
     <div id="root"></div>
-    <script src="/src/index.tsx" type="module"></script>
+    <script>
+        window.process = { env: { NODE_ENV: 'development' } };
+    </script>
+    <script type="module" src="/src/index.tsx"></script>
 </body>
 </html> 
