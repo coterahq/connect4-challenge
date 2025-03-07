@@ -1,0 +1,5 @@
+[preload]
+module = ["react"]
+
+[jsx]
+runtime = "automatic" 
