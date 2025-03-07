@@ -32,6 +32,14 @@ export class Connect4 {
    * Validate if a move is legal
    */
   validateMove(column: number): MoveValidation {
+    // Check if game is still in progress
+    if (this.state.status !== GameStatus.InProgress) {
+      return {
+        isValid: false,
+        error: 'Game is already finished'
+      };
+    }
+
     // Check if column is within bounds
     if (column < 0 || column >= BOARD_COLS) {
       return {
@@ -45,14 +53,6 @@ export class Connect4 {
       return {
         isValid: false,
         error: 'Column is full'
-      };
-    }
-
-    // Check if game is still in progress
-    if (this.state.status !== GameStatus.InProgress) {
-      return {
-        isValid: false,
-        error: 'Game is already finished'
       };
     }
 
@@ -97,8 +97,16 @@ export class Connect4 {
       return { isValid: true };
     }
 
-    // Check for draw
-    if (this.isDraw()) {
+    // Check if any moves remain
+    let hasEmptyCell = false;
+    for (let c = 0; c < BOARD_COLS; c++) {
+      if (this.state.board[0][c] === Player.None) {
+        hasEmptyCell = true;
+        break;
+      }
+    }
+
+    if (!hasEmptyCell) {
       this.state.status = GameStatus.Draw;
       return { isValid: true };
     }
@@ -168,13 +176,6 @@ export class Connect4 {
     }
 
     return null;
-  }
-
-  /**
-   * Check if the game is a draw
-   */
-  private isDraw(): boolean {
-    return this.state.board[0].every(cell => cell !== Player.None);
   }
 
   /**
