@@ -110,8 +110,10 @@ export class Connect4 {
     } else if (this.isDraw()) {
       // Check for draw
       this.state.status = GameStatus.Draw;
-    } else {
-      // Switch players
+    }
+
+    // If game isn't over, switch players
+    if (this.state.status === GameStatus.InProgress) {
       this.state.currentPlayer = 
         this.state.currentPlayer === Player.Red ? Player.Yellow : Player.Red;
     }

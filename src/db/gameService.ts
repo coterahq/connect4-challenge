@@ -30,9 +30,9 @@ export class GameService {
       // Get all moves from the game state by checking the board
       const moves: { player: Player; column: number; }[] = [];
       
-      // Reconstruct moves by scanning the board from top to bottom
-      for (let col = 0; col < state.board[0].length; col++) {
-        for (let row = state.board.length - 1; row >= 0; row--) {
+      // Reconstruct moves by scanning the board from bottom to top, left to right
+      for (let row = state.board.length - 1; row >= 0; row--) {
+        for (let col = 0; col < state.board[0].length; col++) {
           const player = state.board[row][col];
           if (player !== Player.None) {
             moves.push({ player, column: col });
@@ -133,12 +133,18 @@ export class GameService {
     moves_count: number;
   }>> {
     return db.prepare(`
+      WITH move_counts AS (
+        SELECT game_id, COUNT(*) as count
+        FROM moves
+        GROUP BY game_id
+      )
       SELECT 
         g.id,
         g.created_at,
         g.updated_at,
-        (SELECT COUNT(*) FROM moves m WHERE m.game_id = g.id) as moves_count
+        COALESCE(mc.count, 0) as moves_count
       FROM games g
+      LEFT JOIN move_counts mc ON g.id = mc.game_id
       ORDER BY g.updated_at DESC
     `).all() as Array<{
       id: number;
