@@ -14,11 +14,17 @@ import type {
   MoveValidation
 } from './types';
 
+import { GameService } from './db/gameService';
+
 export class Connect4 {
   private state: GameState;
+  private gameId: number | null = null;
+  private gameService: GameService;
 
-  constructor() {
+  constructor(gameId: number | null = null) {
     this.state = createInitialGameState();
+    this.gameService = new GameService();
+    this.gameId = gameId;
   }
 
   /**
@@ -26,6 +32,13 @@ export class Connect4 {
    */
   getState(): GameState {
     return { ...this.state };
+  }
+
+  /**
+   * Get the current game ID if it's stored in the database
+   */
+  getGameId(): number | null {
+    return this.gameId;
   }
 
   /**
@@ -62,7 +75,7 @@ export class Connect4 {
   /**
    * Make a move in the specified column
    */
-  makeMove(column: number): MoveValidation {
+  async makeMove(column: number, skipDbUpdate: boolean = false): Promise<MoveValidation> {
     const validation = this.validateMove(column);
     if (!validation.isValid) {
       return validation;
@@ -94,28 +107,81 @@ export class Connect4 {
       this.state.status = GameStatus.Won;
       this.state.winner = this.state.currentPlayer;
       this.state.winningPositions = winningPositions;
-      return { isValid: true };
-    }
-
-    // Check if any moves remain
-    let hasEmptyCell = false;
-    for (let c = 0; c < BOARD_COLS; c++) {
-      if (this.state.board[0][c] === Player.None) {
-        hasEmptyCell = true;
-        break;
-      }
-    }
-
-    if (!hasEmptyCell) {
+    } else if (this.isDraw()) {
+      // Check for draw
       this.state.status = GameStatus.Draw;
-      return { isValid: true };
+    } else {
+      // Switch players
+      this.state.currentPlayer = 
+        this.state.currentPlayer === Player.Red ? Player.Yellow : Player.Red;
     }
 
-    // Switch players
-    this.state.currentPlayer = 
-      this.state.currentPlayer === Player.Red ? Player.Yellow : Player.Red;
+    // If the game is stored in the database and we're not skipping updates, update it
+    if (this.gameId !== null && !skipDbUpdate) {
+      await this.gameService.addMove(this.gameId, column, move.player);
+    }
 
     return { isValid: true };
+  }
+
+  /**
+   * Save the current game state to the database
+   */
+  async save(): Promise<number> {
+    const gameId = await this.gameService.saveGame(this);
+    this.gameId = gameId;
+    return gameId;
+  }
+
+  /**
+   * Load a game from the database
+   */
+  static async load(gameId: number): Promise<Connect4 | null> {
+    const gameService = new GameService();
+    const game = await gameService.loadGame(gameId);
+    if (game) {
+      game.gameId = gameId;
+      game.gameService = gameService;
+    }
+    return game;
+  }
+
+  /**
+   * List all stored games
+   */
+  static async listGames(): Promise<Array<{
+    id: number;
+    created_at: string;
+    updated_at: string;
+    moves_count: number;
+  }>> {
+    const gameService = new GameService();
+    return gameService.listGames();
+  }
+
+  /**
+   * Get move history for the current game
+   */
+  async getMoveHistory(): Promise<Move[]> {
+    if (this.gameId === null) {
+      return [];
+    }
+    const moves = await this.gameService.getMoveHistory(this.gameId);
+    return moves.map(move => ({
+      player: move.player,
+      column: move.column,
+      timestamp: new Date(move.created_at)
+    }));
+  }
+
+  /**
+   * Delete the current game from the database
+   */
+  async delete(): Promise<void> {
+    if (this.gameId !== null) {
+      await this.gameService.deleteGame(this.gameId);
+      this.gameId = null;
+    }
   }
 
   /**
@@ -176,6 +242,18 @@ export class Connect4 {
     }
 
     return null;
+  }
+
+  /**
+   * Check if the game is a draw
+   */
+  private isDraw(): boolean {
+    for (let c = 0; c < BOARD_COLS; c++) {
+      if (this.state.board[0][c] === Player.None) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /**
