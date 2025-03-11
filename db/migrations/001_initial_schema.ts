@@ -1,6 +1,6 @@
-import db from "../config";
+import { Database } from 'bun:sqlite';
 
-export async function up() {
+export async function up(db: Database) {
   db.run(`
     CREATE TABLE IF NOT EXISTS migrations (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -10,6 +10,6 @@ export async function up() {
   `);
 }
 
-export async function down() {
+export async function down(db: Database) {
   db.run('DROP TABLE IF EXISTS migrations');
 } 

@@ -5,25 +5,26 @@ import {
   BOARD_COLS,
   DIRECTIONS,
   createInitialGameState
-} from './types';
+} from '../types';
 
 import type {
   GameState,
   Position,
   Move,
   MoveValidation
-} from './types';
+} from '../types';
 
 import { GameService } from './db/gameService';
+import { Database } from 'bun:sqlite';
 
 export class Connect4 {
   private state: GameState;
   private gameId: number | null = null;
   private gameService: GameService;
 
-  constructor(gameId: number | null = null) {
+  constructor(gameId: number | null = null, private db: Database) {
     this.state = createInitialGameState();
-    this.gameService = new GameService();
+    this.gameService = new GameService(db);
     this.gameId = gameId;
   }
 
@@ -133,32 +134,6 @@ export class Connect4 {
     const gameId = await this.gameService.saveGame(this);
     this.gameId = gameId;
     return gameId;
-  }
-
-  /**
-   * Load a game from the database
-   */
-  static async load(gameId: number): Promise<Connect4 | null> {
-    const gameService = new GameService();
-    const game = await gameService.loadGame(gameId);
-    if (game) {
-      game.gameId = gameId;
-      game.gameService = gameService;
-    }
-    return game;
-  }
-
-  /**
-   * List all stored games
-   */
-  static async listGames(): Promise<Array<{
-    id: number;
-    created_at: string;
-    updated_at: string;
-    moves_count: number;
-  }>> {
-    const gameService = new GameService();
-    return gameService.listGames();
   }
 
   /**

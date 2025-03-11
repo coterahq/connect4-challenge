@@ -1,6 +1,6 @@
 import { describe, expect, test, beforeAll } from "bun:test";
-import db from "./config";
 import { runMigrations } from "./migrate";
+import db from "../src/backend/db/db";
 
 interface TableInfo {
   name: string;
@@ -18,7 +18,7 @@ interface ColumnInfo {
 describe("Database Schema", () => {
   beforeAll(async () => {
     // Run migrations to ensure database is up to date
-    await runMigrations();
+    await runMigrations(db);
   });
 
   test("migrations table exists", () => {

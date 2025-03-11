@@ -1,6 +1,6 @@
-import db from "../../db/config";
-import { Player } from "../types";
+import { Player } from "../../types";
 import { Connect4 } from "../game";
+import { Database } from 'bun:sqlite';
 
 interface StoredMove {
   player: Player;
@@ -10,6 +10,16 @@ interface StoredMove {
 }
 
 export class GameService {
+  constructor(private db: Database) {}
+
+  /**
+   * Create a new game
+   */
+  async createGame(): Promise<number> {
+    //TODO implement this
+    return this.saveGame(new Connect4(null, this.db));
+  }
+
   /**
    * Save a game state to the database
    */
@@ -18,9 +28,9 @@ export class GameService {
     let gameId: number;
     
     // Start a transaction
-    db.transaction(() => {
+    this.db.transaction(() => {
       // Create new game record
-      const gameResult = db.prepare(`
+      const gameResult = this.db.prepare(`
         INSERT INTO games (created_at)
         VALUES (CURRENT_TIMESTAMP)
       `).run();
@@ -41,7 +51,7 @@ export class GameService {
       }
 
       // Save moves to the database
-      const moveStmt = db.prepare(`
+      const moveStmt = this.db.prepare(`
         INSERT INTO moves (game_id, player, column, move_number)
         VALUES (?, ?, ?, ?)
       `);
@@ -59,16 +69,16 @@ export class GameService {
    */
   async loadGame(gameId: number): Promise<Connect4 | null> {
     // Check if game exists
-    const gameExists = db.prepare('SELECT 1 FROM games WHERE id = ?').get(gameId);
+    const gameExists = this.db.prepare('SELECT 1 FROM games WHERE id = ?').get(gameId);
     if (!gameExists) {
       return null;
     }
 
     // Create new game instance
-    const game = new Connect4(gameId);
+    const game = new Connect4(gameId, this.db);
 
     // Load all moves in order
-    const moves = db.prepare(`
+    const moves = this.db.prepare(`
       SELECT player, column, move_number, created_at
       FROM moves
       WHERE game_id = ?
@@ -92,24 +102,24 @@ export class GameService {
    */
   async addMove(gameId: number, column: number, player: Player): Promise<void> {
     // Check if game exists first
-    const gameExists = db.prepare('SELECT 1 FROM games WHERE id = ?').get(gameId);
+    const gameExists = this.db.prepare('SELECT 1 FROM games WHERE id = ?').get(gameId);
     if (!gameExists) {
       throw new Error(`Game ${gameId} not found`);
     }
 
-    const moveNumber = db.prepare(`
+    const moveNumber = this.db.prepare(`
       SELECT COALESCE(MAX(move_number), 0) + 1 as next_move
       FROM moves
       WHERE game_id = ?
     `).get(gameId) as { next_move: number };
 
-    db.prepare(`
+    this.db.prepare(`
       INSERT INTO moves (game_id, player, column, move_number)
       VALUES (?, ?, ?, ?)
     `).run(gameId, player, column, moveNumber.next_move);
 
     // Update game's updated_at timestamp
-    db.prepare(`
+    this.db.prepare(`
       UPDATE games
       SET updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
@@ -120,7 +130,7 @@ export class GameService {
    * Delete a game from the database
    */
   async deleteGame(gameId: number): Promise<void> {
-    db.prepare('DELETE FROM games WHERE id = ?').run(gameId);
+    this.db.prepare('DELETE FROM games WHERE id = ?').run(gameId);
   }
 
   /**
@@ -132,7 +142,7 @@ export class GameService {
     updated_at: string;
     moves_count: number;
   }>> {
-    return db.prepare(`
+    return this.db.prepare(`
       WITH move_counts AS (
         SELECT game_id, COUNT(*) as count
         FROM moves
@@ -158,7 +168,7 @@ export class GameService {
    * Get move history for a game
    */
   async getMoveHistory(gameId: number): Promise<StoredMove[]> {
-    return db.prepare(`
+    return this.db.prepare(`
       SELECT player, column, move_number, created_at
       FROM moves
       WHERE game_id = ?

@@ -1,6 +1,6 @@
-import db from "../config";
+import { Database } from 'bun:sqlite';
 
-export async function up() {
+export async function up(db: Database) {
   // Create games table
   db.run(`
     CREATE TABLE games (
@@ -27,7 +27,7 @@ export async function up() {
   db.run('CREATE INDEX idx_moves_game_id ON moves(game_id)');
 }
 
-export async function down() {
+export async function down(db: Database) {
   db.run('DROP TABLE IF EXISTS moves');
   db.run('DROP TABLE IF EXISTS games');
 } 

@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { Connect4 } from '../game';
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+
 
 interface Game {
   id: number;
@@ -16,7 +17,9 @@ export function GamesList() {
   useEffect(() => {
     async function loadGames() {
       try {
-        const gamesList = await Connect4.listGames();
+        const gamesResponse = await fetch('/api/games').then(res => res.json());
+        const gamesList = gamesResponse.games;
+
         setGames(gamesList);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load games');
@@ -45,7 +48,9 @@ export function GamesList() {
       {games.map(game => (
         <div key={game.id} className="game-card">
           <div className="game-info">
-            <div className="game-id">Game #{game.id}</div>
+            <div className="game-id">
+              <Link to={`/games/${game.id}`}>Game #{game.id}</Link>
+            </div>
             <div className="game-meta">
               Created: {new Date(game.created_at).toLocaleString()}
               {game.updated_at && (

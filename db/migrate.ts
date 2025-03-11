@@ -1,8 +1,8 @@
 import { readdirSync } from "fs";
 import { join } from "path";
-import db from "./config";
+import { Database } from 'bun:sqlite';
 
-export async function runMigrations() {
+export async function runMigrations(db: Database) {
   // Create migrations table if it doesn't exist
   db.run(`
     CREATE TABLE IF NOT EXISTS migrations (

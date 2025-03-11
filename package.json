@@ -4,7 +4,7 @@
   "type": "module",
   "devDependencies": {
     "@testing-library/react": "^16.2.0",
-    "@types/bun": "latest",
+    "@types/bun": "^1.2.4",
     "happy-dom": "^17.3.0"
   },
   "peerDependencies": {

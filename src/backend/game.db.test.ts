@@ -1,8 +1,13 @@
 import "./test/setup";
-import { expect, describe, test, beforeEach, afterEach } from "bun:test";
+import { expect, describe, test, beforeEach } from "bun:test";
 import { Connect4 } from "./game";
-import { Player, GameStatus } from "./types";
-import db from "../db/config";
+import { Player, GameStatus } from "../types";
+import { Database } from "bun:sqlite";
+import { GameService } from "./db/gameService";
+
+const db = new Database("db/data.sqlite");
+
+const gameService = new GameService(db);
 
 describe("Connect4 Database Integration", () => {
   // Clean up the database before each test
@@ -12,8 +17,9 @@ describe("Connect4 Database Integration", () => {
   });
 
   describe("Game Persistence", () => {
+    
     test("should save and load a game", async () => {
-      const game = new Connect4();
+      const game = new Connect4(undefined, db);
       
       // Make some moves
       await game.makeMove(3); // Red in column 3
@@ -25,7 +31,8 @@ describe("Connect4 Database Integration", () => {
       expect(game.getGameId()).toBe(gameId);
 
       // Load the game
-      const loadedGame = await Connect4.load(gameId);
+      const loadedGame = await gameService.loadGame(gameId);
+
       expect(loadedGame).not.toBeNull();
       
       // Verify game state
@@ -37,7 +44,7 @@ describe("Connect4 Database Integration", () => {
     });
 
     test("should track move history", async () => {
-      const game = new Connect4();
+      const game = new Connect4(undefined, db);
       
       // Make and save moves
       await game.makeMove(3);
@@ -54,7 +61,7 @@ describe("Connect4 Database Integration", () => {
     });
 
     test("should automatically save new moves for saved games", async () => {
-      const game = new Connect4();
+      const game = new Connect4(undefined, db);
       await game.makeMove(3);
       const gameId = await game.save();
 
@@ -62,7 +69,7 @@ describe("Connect4 Database Integration", () => {
       await game.makeMove(4);
 
       // Load game and verify moves
-      const loadedGame = await Connect4.load(gameId);
+      const loadedGame = await gameService.loadGame(gameId);
       const history = await loadedGame!.getMoveHistory();
       expect(history).toHaveLength(2);
       expect(history[1].column).toBe(4);
@@ -72,17 +79,17 @@ describe("Connect4 Database Integration", () => {
   describe("Game Listing", () => {
     test("should list all saved games", async () => {
       // Create and save multiple games
-      const game1 = new Connect4();
+      const game1 = new Connect4(undefined, db);
       await game1.makeMove(3);
       await game1.save();
 
-      const game2 = new Connect4();
+      const game2 = new Connect4(undefined, db);
       await game2.makeMove(4);
       await game2.makeMove(3);
       await game2.save();
 
       // List games
-      const games = await Connect4.listGames();
+      const games = await gameService.listGames();
       expect(games).toHaveLength(2);
       expect(games[0].moves_count).toBe(2); // game2
       expect(games[1].moves_count).toBe(1); // game1
@@ -91,7 +98,7 @@ describe("Connect4 Database Integration", () => {
 
   describe("Game Deletion", () => {
     test("should delete a saved game", async () => {
-      const game = new Connect4();
+      const game = new Connect4(undefined, db);
       await game.makeMove(3);
       const gameId = await game.save();
 
@@ -100,14 +107,14 @@ describe("Connect4 Database Integration", () => {
       expect(game.getGameId()).toBeNull();
 
       // Try to load deleted game
-      const loadedGame = await Connect4.load(gameId);
+      const loadedGame = await gameService.loadGame(gameId);
       expect(loadedGame).toBeNull();
     });
   });
 
   describe("Game State Management", () => {
     test("should save and load a winning game state", async () => {
-      const game = new Connect4();
+      const game = new Connect4(undefined, db);
       
       // Create a winning position for Red
       await game.makeMove(0); // Red
@@ -119,7 +126,7 @@ describe("Connect4 Database Integration", () => {
       await game.makeMove(0); // Red wins vertically
 
       const gameId = await game.save();
-      const loadedGame = await Connect4.load(gameId);
+      const loadedGame = await gameService.loadGame(gameId);
       
       const state = loadedGame!.getState();
       expect(state.status).toBe(GameStatus.Won);
@@ -128,7 +135,7 @@ describe("Connect4 Database Integration", () => {
     });
 
     test("should save and load a drawn game state", async () => {
-      const game = new Connect4();
+      const game = new Connect4(undefined, db);
       
       // Fill the board in a pattern that leads to a draw
       for (let col = 0; col < 7; col++) {
@@ -138,7 +145,7 @@ describe("Connect4 Database Integration", () => {
       }
 
       const gameId = await game.save();
-      const loadedGame = await Connect4.load(gameId);
+      const loadedGame = await gameService.loadGame(gameId);
       
       const state = loadedGame!.getState();
       expect(state.status).toBe(GameStatus.Draw);
@@ -146,14 +153,14 @@ describe("Connect4 Database Integration", () => {
     });
 
     test("should handle invalid game IDs", async () => {
-      const loadedGame = await Connect4.load(999999);
+      const loadedGame = await gameService.loadGame(999999);
       expect(loadedGame).toBeNull();
     });
   });
 
   describe("Move Validation", () => {
     test("should prevent moves in finished games", async () => {
-      const game = new Connect4();
+      const game = new Connect4(undefined, db);
       
       // Create a winning position
       await game.makeMove(0); // Red
@@ -165,7 +172,7 @@ describe("Connect4 Database Integration", () => {
       await game.makeMove(0); // Red wins vertically
 
       const gameId = await game.save();
-      const loadedGame = await Connect4.load(gameId);
+      const loadedGame = await gameService.loadGame(gameId);
       
       // Try to make a move in the finished game
       const result = await loadedGame!.makeMove(2);

@@ -1,12 +1,14 @@
 import { expect, describe, test, beforeEach } from "bun:test";
 import { Connect4 } from "./game";
-import { Player, GameStatus } from "./types";
+import db from "./db/db";
+import { GameStatus } from "../types";
+import { Player } from "../types";
 
 describe("Connect4", () => {
   let game: Connect4;
 
   beforeEach(() => {
-    game = new Connect4();
+    game = new Connect4(undefined, db);
   });
 
   describe("Initial State", () => {
@@ -140,7 +142,7 @@ describe("Connect4", () => {
   });
 
   describe("Draw Detection", () => {
-    test("should detect draw when board is full", () => {
+    test("should detect draw when board is full", async () => {
       // Fill the board in a checkerboard pattern to prevent any wins
       // We'll fill alternating columns from bottom to top
       const columnOrder = [0, 2, 4, 6, 1, 3, 5];
@@ -148,7 +150,7 @@ describe("Connect4", () => {
       // Fill each column
       for (const col of columnOrder) {
         for (let i = 0; i < 6; i++) {
-          const result = game.makeMove(col);
+          const result = await game.makeMove(col);
           if (!result.isValid) {
             console.log(`Move to column ${col} failed:`, result.error);
           }

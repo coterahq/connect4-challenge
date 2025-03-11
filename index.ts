@@ -1,118 +1,84 @@
-import { runMigrations } from './db/migrate';
-import { join } from 'path';
-import { type BunFile } from 'bun';
+// start.ts
+import { build } from "bun";
+import { serve } from "bun";
+import { readFileSync } from "fs";
+import { join } from "path";
+import { runMigrations } from "./db/migrate";
+import { GameService } from "./src/backend/db/gameService";
+import db from "./src/backend/db/db";
 
-const PORT = 3000;
+// Run migrations
+await runMigrations(db);
 
-// Run migrations before starting the server
-await runMigrations();
+const gameService = new GameService(db);
 
-// Load index.html template
-const indexHtml = await Bun.file(join(import.meta.dir, 'public/index.html')).text();
-
-// Create a build cache for transformed files
-const buildCache = new Map<string, { code: string, timestamp: number }>();
-
-async function transformFile(file: BunFile, filePath: string) {
-  const stats = await file.stat();
-  const cached = buildCache.get(filePath);
-
-  // Return cached version if file hasn't changed
-  if (cached && cached.timestamp === stats.mtimeMs) {
-    return cached.code;
-  }
-
-  try {
-    // Build the file
-    const build = await Bun.build({
-      entrypoints: [filePath],
-      target: 'browser',
-      splitting: false,
-      format: 'esm',
-      external: ['react', 'react-dom', 'react-router-dom'],
-      define: {
-        'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
-        'global': 'window'
-      }
-    });
-
-    if (!build.success) {
-      console.error('Build failed:', build.logs);
-      throw new Error(`Build failed: ${build.logs}`);
-    }
-
-    const output = await build.outputs[0]?.text();
-    if (!output) {
-      throw new Error('No output from build');
-    }
-
-    // Cache the result
-    buildCache.set(filePath, {
-      code: output,
-      timestamp: stats.mtimeMs
-    });
-
-    return output;
-  } catch (error) {
-    console.error('Transform error for file:', filePath);
-    console.error(error);
-    throw error;
-  }
-}
-
-Bun.serve({
-  port: PORT,
-  async fetch(req) {
-    const url = new URL(req.url);
-    console.log('Request:', url.pathname);
-
-    // Serve static files from src directory
-    if (url.pathname.startsWith('/src/')) {
-      const filePath = join(import.meta.dir, url.pathname);
-      console.log('Serving file:', filePath);
-      
-      const file = Bun.file(filePath);
-      const exists = await file.exists();
-      
-      if (exists) {
-        const headers = new Headers();
-        
-        // Transform TypeScript and JSX files
-        if (url.pathname.endsWith('.tsx') || url.pathname.endsWith('.ts')) {
-          headers.set('Content-Type', 'application/javascript');
-          try {
-            console.log('Transforming file:', filePath);
-            const code = await transformFile(file, filePath);
-            console.log('Transform successful');
-            return new Response(code, { headers });
-          } catch (error) {
-            console.error('Transform error:', error);
-            return new Response(`Build failed: ${error.message}`, { 
-              status: 500,
-              headers: { 'Content-Type': 'text/plain' }
-            });
-          }
-        }
-
-        // Set appropriate content type for other files
-        if (url.pathname.endsWith('.js')) {
-          headers.set('Content-Type', 'application/javascript');
-        } else if (url.pathname.endsWith('.css')) {
-          headers.set('Content-Type', 'text/css');
-        }
-
-        return new Response(file, { headers });
-      }
-
-      console.log('File not found:', filePath);
-      return new Response('File not found', { status: 404 });
-    }
-
-    // For all other routes, serve the React app
-    return new Response(indexHtml, {
-      headers: { 'Content-Type': 'text/html' }
-    });
-  }
+// 1. Build the React frontend (index.tsx -> index.js)
+await build({
+  entrypoints: ["src/frontend/index.tsx"],
+  outdir: "dist",
+  // You can add additional build options as needed
 });
 
-console.log(`Listening on port ${PORT}`);
+const html = readFileSync(join(process.cwd(), "index.html"), "utf8");
+
+// 3. Create the Bun server to serve both API endpoints and static files
+const server = serve({
+  port: 3000,
+  routes: {
+    "/api/games/:id": async (request): Promise<Response> => {
+      const game = await gameService.loadGame(
+        parseInt((request.params as any).id)
+      );
+      return new Response(JSON.stringify({ game }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    },
+    "/api/games/:id/move": async (request): Promise<Response> => {
+      if (request.method === "POST") {
+        try {
+          const body = await request.json();
+
+          const game = await gameService.loadGame(
+            parseInt((request.params as any).id)
+          );
+          await game?.makeMove(body.move);
+          return new Response(JSON.stringify({ game }), {
+            headers: { "Content-Type": "application/json" },
+          });
+        } catch (error) {
+          return new Response(JSON.stringify({ error: "Invalid JSON" }), {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+      }
+      return new Response("Send a POST request with a JSON body.");
+    },
+    "/api/games": async (request): Promise<Response> => {
+      const games = await gameService.listGames();
+      return new Response(JSON.stringify({ games }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    },
+    "/api/games/create": async (request): Promise<Response> => {
+      const game = await gameService.createGame();
+      return new Response(JSON.stringify({ game }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    },
+    "/index.js": async (request): Promise<Response> => {
+      const js = readFileSync(join(process.cwd(), "dist/index.js"), "utf8");
+      return new Response(js, {
+        headers: { "Content-Type": "application/javascript" },
+      });
+    },
+    "/": async (request): Promise<Response> => {
+      return new Response(html, { headers: { "Content-Type": "text/html" } });
+    },
+    "/*": async (request): Promise<Response> => {
+      return new Response(html, { headers: { "Content-Type": "text/html" } });
+    },
+  },
+});
+
+console.log("Server is running on http://localhost:3000");
