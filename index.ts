@@ -22,7 +22,7 @@ await build({
 const html = readFileSync(join(process.cwd(), "index.html"), "utf8");
 
 // 3. Create the Bun server to serve both API endpoints and static files
-const server = serve({
+serve({
   port: 3000,
   routes: {
     "/api/games/:id": async (request): Promise<Response> => {
@@ -54,30 +54,31 @@ const server = serve({
       }
       return new Response("Send a POST request with a JSON body.");
     },
-    "/api/games": async (request): Promise<Response> => {
+    "/api/games": async (): Promise<Response> => {
       const games = await gameService.listGames();
       return new Response(JSON.stringify({ games }), {
         headers: { "Content-Type": "application/json" },
       });
     },
-    "/api/games/create": async (request): Promise<Response> => {
+    "/api/games/create": async (): Promise<Response> => {
       const game = await gameService.createGame();
       return new Response(JSON.stringify({ game }), {
         headers: { "Content-Type": "application/json" },
       });
     },
-    "/index.js": async (request): Promise<Response> => {
+    "/index.js": async (): Promise<Response> => {
       const js = readFileSync(join(process.cwd(), "dist/index.js"), "utf8");
       return new Response(js, {
         headers: { "Content-Type": "application/javascript" },
       });
     },
-    "/": async (request): Promise<Response> => {
+    "/": async (): Promise<Response> => {
       return new Response(html, { headers: { "Content-Type": "text/html" } });
     },
-    "/*": async (request): Promise<Response> => {
-      return new Response(html, { headers: { "Content-Type": "text/html" } });
-    },
+  },
+  fetch(request) {
+    //fallback to index.html for all other routes
+    return new Response(html, { headers: { "Content-Type": "text/html" } });
   },
 });
 
