@@ -159,6 +159,8 @@ describe("Connect4", () => {
       }
       
       const state = game.getState();
+
+      
       expect(state.status).toBe(GameStatus.Draw);
       expect(state.winner).toBeNull();
 

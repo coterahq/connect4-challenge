@@ -36,6 +36,13 @@ export class Connect4 {
   }
 
   /**
+   * a function to "pretty print" the game state
+   */
+  toString(): string {
+    return this.state.board.map(row => row.join(' ')).join('\n');
+  }
+
+  /**
    * Get the current game ID if it's stored in the database
    */
   getGameId(): number | null {
